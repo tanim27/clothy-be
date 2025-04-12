@@ -15,19 +15,19 @@ const app = express()
 // Connect to MongoDB
 connectDB()
 
-// const allowedOrigins = [
-// 	'https://clothy-fe.onrender.com',
-// 	'https://clothy-admin.onrender.com',
-// ]
+const allowedOrigins = [
+	'https://clothy-fe.onrender.com',
+	'https://clothy-admin.onrender.com',
+]
 
 // Middleware
-// app.use(
-// 	cors({
-// 		origin: allowedOrigins,
-// 		credentials: true,
-// 	}),
-// )
-app.use(cors({}))
+app.use(
+	cors({
+		origin: allowedOrigins,
+		credentials: true,
+	}),
+)
+// app.use(cors({}))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
