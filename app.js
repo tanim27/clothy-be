@@ -15,19 +15,31 @@ const app = express()
 // Connect to MongoDB
 connectDB()
 
-const allowedOrigins = [
-	'https://clothy-fe.onrender.com',
-	'https://clothy-admin.onrender.com',
-]
-
 // Middleware
 app.use(
 	cors({
-		origin: allowedOrigins,
+		origin: [
+			'http://localhost:3000',
+			'https://clothy-fe.onrender.com',
+			'https://clothy-admin.onrender.com',
+		],
 		credentials: true,
 	}),
 )
-// app.use(cors({}))
+
+// Respond to preflight (OPTIONS) requests
+app.options(
+	'*',
+	cors({
+		origin: [
+			'http://localhost:3000',
+			'https://clothy-fe.onrender.com',
+			'https://clothy-admin.onrender.com',
+		],
+		credentials: true,
+	}),
+)
+
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
