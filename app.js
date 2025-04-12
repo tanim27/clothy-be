@@ -15,31 +15,31 @@ const app = express()
 // Connect to MongoDB
 connectDB()
 
-// Middleware
+// Allowed origins
+const allowedOrigins = [
+	'http://localhost:3000',
+	'https://clothy-fe.onrender.com',
+	'https://clothy-admin.onrender.com',
+]
+
+// CORS middleware
 app.use(
 	cors({
-		origin: [
-			'http://localhost:3000',
-			'https://clothy-fe.onrender.com',
-			'https://clothy-admin.onrender.com',
-		],
+		origin: function (origin, callback) {
+			if (!origin || allowedOrigins.includes(origin)) {
+				callback(null, true)
+			} else {
+				callback(new Error('Not allowed by CORS'))
+			}
+		},
 		credentials: true,
 	}),
 )
 
-// Respond to preflight (OPTIONS) requests
-app.options(
-	'*',
-	cors({
-		origin: [
-			'http://localhost:3000',
-			'https://clothy-fe.onrender.com',
-			'https://clothy-admin.onrender.com',
-		],
-		credentials: true,
-	}),
-)
+// Automatically respond to preflight requests
+app.options('*', cors())
 
+// Middleware
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
