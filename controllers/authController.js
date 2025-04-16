@@ -184,13 +184,13 @@ export const forgetPassword = async (req, res) => {
 			from: 'abdullahtanim007@gmail.com',
 			to: email,
 			subject: 'Password Reset Request',
-			text: `Click on this link to generate your new password ${resetURL}`,
+			text: `Click on this link to generate your new password: ${resetURL}`,
 		}
 
 		await transporter.sendMail(receiver)
 
 		return res.status(200).send({
-			message: 'Password reset link send successfully on your gmail account',
+			message: 'Password reset link send successfully on your email account',
 		})
 	} catch (error) {
 		console.error(error)

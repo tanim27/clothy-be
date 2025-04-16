@@ -1,7 +1,8 @@
+import streamifier from 'streamifier'
 import { upload } from '../middlewares/multerMiddleware.js'
 import Product from '../models/Product.js'
+import cloudinary from '../utils/cloudinary.js'
 
-// CREATE
 export const addProduct = async (req, res) => {
 	upload.single('image')(req, res, async (err) => {
 		if (err) {
@@ -145,12 +146,23 @@ export const addProduct = async (req, res) => {
 			})
 		}
 
-		// Construct full image URL
-		const image = `${req.protocol}://${req.get('host')}/uploads/${
-			req.file.filename
-		}`
-
+		// Upload image to Cloudinary
 		try {
+			const streamUpload = (buffer) => {
+				return new Promise((resolve, reject) => {
+					const stream = cloudinary.uploader.upload_stream(
+						{ folder: 'clothy-products' },
+						(error, result) => {
+							if (result) resolve(result)
+							else reject(error)
+						},
+					)
+					streamifier.createReadStream(buffer).pipe(stream)
+				})
+			}
+
+			const cloudinaryResult = await streamUpload(req.file.buffer)
+
 			const newProduct = new Product({
 				name,
 				description,
@@ -162,7 +174,7 @@ export const addProduct = async (req, res) => {
 				brand,
 				best_selling: best_selling === 'true',
 				new_arrival: new_arrival === 'true',
-				image,
+				image: cloudinaryResult.secure_url,
 			})
 
 			await newProduct.save()
@@ -232,7 +244,7 @@ export const updateProduct = async (req, res) => {
 			new_arrival,
 		} = req.body
 
-		// Parse stock from req.body
+		// Parse stock array from flat FormData fields
 		const stockArray = []
 		Object.keys(req.body).forEach((key) => {
 			const match = key.match(/^stock\[(\d+)\]\.(size|quantity)$/)
@@ -253,7 +265,7 @@ export const updateProduct = async (req, res) => {
 			return res.status(400).json({ message: 'Stock is required' })
 		}
 
-		// Validate stock entries
+		// Validate each stock entry
 		for (const item of stockArray) {
 			if (
 				!item.size ||
@@ -291,7 +303,7 @@ export const updateProduct = async (req, res) => {
 				return res.status(404).json({ message: 'Product not found' })
 			}
 
-			// Validate individual fields if present (only validate fields being updated)
+			// Validate optional fields
 			if (name && typeof name !== 'string') {
 				return res.status(400).json({ message: 'Invalid product name' })
 			}
@@ -335,39 +347,63 @@ export const updateProduct = async (req, res) => {
 				}
 			}
 
-			// Image handling
-			const image = req.file
-				? `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`
-				: product.image
+			// Upload image to Cloudinary if new image is provided
+			let imageUrl = product.image
+			if (req.file) {
+				const streamUpload = () => {
+					return new Promise((resolve, reject) => {
+						const stream = cloudinary.uploader.upload_stream(
+							{
+								resource_type: 'image',
+								folder: 'clothy-products',
+							},
+							(error, result) => {
+								if (error) return reject(error)
+								resolve(result)
+							},
+						)
+						streamifier.createReadStream(req.file.buffer).pipe(stream)
+					})
+				}
 
-			// Convert best_selling and new_arrival to boolean if provided
-			const updatedBestSelling =
-				best_selling !== undefined
-					? best_selling === 'true'
-					: product.best_selling
-			const updatedNewArrival =
-				new_arrival !== undefined ? new_arrival === 'true' : product.new_arrival
+				try {
+					const result = await streamUpload()
+					imageUrl = result.secure_url // ← use this URL to update your product
+					console.log('Uploaded to Cloudinary:', imageUrl)
+				} catch (err) {
+					console.error('Cloudinary Upload Error:', err)
+					return res.status(500).json({ message: 'Image upload failed' })
+				}
+			}
 
-			// Update product fields
-			product.name = name || product.name
-			product.description = description || product.description
-			product.price = parsedPrice
-			product.offer_price = parsedOfferPrice
-			product.category = category || product.category
-			product.sub_category = sub_category || product.sub_category
-			product.brand = brand || product.brand
-			product.best_selling = updatedBestSelling
-			product.new_arrival = updatedNewArrival
-			product.stock = stockArray
-			product.image = image
+			// If no image upload, save directly
+			await saveAndRespond()
 
-			await product.save()
+			// Save and respond function
+			async function saveAndRespond() {
+				product.name = name || product.name
+				product.description = description || product.description
+				product.price = parsedPrice
+				product.offer_price = parsedOfferPrice
+				product.category = category || product.category
+				product.sub_category = sub_category || product.sub_category
+				product.brand = brand || product.brand
+				product.stock = stockArray
+				product.image = imageUrl
+				product.best_selling =
+					best_selling !== undefined
+						? best_selling === 'true'
+						: product.best_selling
+				product.new_arrival =
+					new_arrival !== undefined
+						? new_arrival === 'true'
+						: product.new_arrival
 
-			console.log('Updated Product:', product) // Log the updated product for debugging
-
-			res.status(200).json(product)
+				await product.save()
+				res.status(200).json(product)
+			}
 		} catch (error) {
-			console.error('Error updating product:', error.message) // Log error for debugging
+			console.error('Error updating product:', error.message)
 			res.status(500).json({ message: error.message || 'Server error' })
 		}
 	})

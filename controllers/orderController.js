@@ -1,9 +1,8 @@
 import axios from 'axios'
 import Order from '../models/Order.js'
-
-// Create an order with payment support (SSLCOMMERZ or Cash on Delivery)
 import Product from '../models/Product.js'
 
+// Create an order with payment support (SSLCOMMERZ or Cash on Delivery)
 export const createOrder = async (req, res) => {
 	try {
 		const {
@@ -18,6 +17,14 @@ export const createOrder = async (req, res) => {
 		if (!user) return res.status(400).json({ message: 'User is required' })
 		if (!phone_number)
 			return res.status(400).json({ message: 'Phone number is required' })
+
+		const existingOrder = await Order.findOne({ phone_number })
+
+		if (existingOrder) {
+			return res.status(400).json({
+				message: 'An order has already been placed using this phone number',
+			})
+		}
 		if (!Array.isArray(clientProducts) || clientProducts.length === 0)
 			return res.status(400).json({ message: 'Products array is required' })
 		if (
@@ -177,15 +184,13 @@ export const sslSuccess = async (req, res) => {
 // Track an order by Order ID and Phone Number
 export const trackOrder = async (req, res) => {
 	try {
-		const { order_id, phone_number } = req.query
+		const { phone_number } = req.query
 
-		if (!order_id || !phone_number) {
-			return res
-				.status(400)
-				.json({ message: 'Order ID and Phone Number required' })
+		if (!phone_number) {
+			return res.status(400).json({ message: 'Phone Number required' })
 		}
 
-		const order = await Order.findOne({ order_id, phone_number })
+		const order = await Order.findOne({ phone_number })
 
 		if (!order) {
 			return res.status(404).json({ message: 'Order not found' })
