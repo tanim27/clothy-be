@@ -3,6 +3,46 @@ import jwt from 'jsonwebtoken'
 import nodemailer from 'nodemailer'
 import User from '../models/User.js'
 
+export const googleLogin = async (req, res) => {
+	const { name, email } = req.body
+
+	if (!email || !name) {
+		return res.status(400).json({ message: 'Name and email are required' })
+	}
+
+	try {
+		let user = await User.findOne({ email })
+
+		if (!user) {
+			// Create a new user with random password since it’s not used
+			const randomPassword = Math.random().toString(36).slice(-8)
+			const salt = await bcrypt.genSalt(10)
+			const hashedPassword = await bcrypt.hash(randomPassword, salt)
+
+			user = new User({
+				name,
+				email,
+				password: hashedPassword,
+				provider: 'google',
+			})
+
+			await user.save()
+		}
+
+		const token = jwt.sign(
+			{ id: user._id, role: user.role },
+			process.env.JWT_SECRET,
+			{ expiresIn: '1d' },
+		)
+
+		res.status(200).json({ token, user })
+	} catch (error) {
+		res
+			.status(500)
+			.json({ message: 'Google login failed', details: error.message })
+	}
+}
+
 export const registerUser = async (req, res) => {
 	const { name, email, password, role = 'user' } = req.body
 

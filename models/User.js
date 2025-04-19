@@ -10,18 +10,20 @@ const userSchema = new Schema(
 			required: true,
 			unique: true,
 			match: [/.+\@.+\..+/, 'Please enter a valid email address'],
-		}, // Email validation regex
-		password: { type: String, required: true },
+		},
+		password: { type: String },
 		role: {
 			type: String,
-			required: true,
 			enum: ['admin', 'user'],
 			default: 'user',
 		},
+		provider: {
+			type: String,
+			enum: ['local', 'google'],
+			default: 'local',
+		},
 	},
-	{
-		timestamps: true,
-	},
+	{ timestamps: true },
 )
 
 const User = mongoose.model('User', userSchema)

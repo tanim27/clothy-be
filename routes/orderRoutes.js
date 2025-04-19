@@ -2,6 +2,8 @@ import express from 'express'
 import {
 	createOrder,
 	getAllOrders,
+	sslCancel,
+	sslFail,
 	sslSuccess,
 	trackOrder,
 	updateOrderStatus,
@@ -17,6 +19,10 @@ router.post('/', protectRoute, createOrder)
 
 // Handle SSLCOMMERZ successful payment
 router.post('/ssl-success', sslSuccess)
+// Handle SSLCOMMERZ failed payment
+router.post('/ssl-fail', sslFail)
+// Handle SSLCOMMERZ cancel payment
+router.post('/ssl-cancel', sslCancel)
 
 // Track an order by Order ID & Phone Number (No auth required)
 router.get('/track-order', trackOrder)

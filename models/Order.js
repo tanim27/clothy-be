@@ -68,8 +68,12 @@ const orderSchema = new Schema({
 		type: String,
 		enum: ['Pending', 'Paid'],
 		default: function () {
-			return this.payment_method === 'Cash On Delivery' ? 'Pending' : 'Paid'
+			return this.payment_method === 'Cash On Delivery' && 'Pending'
 		},
+	},
+	payment_info: {
+		type: Object,
+		default: {},
 	},
 	created_at: {
 		type: Date,

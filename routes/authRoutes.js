@@ -2,6 +2,7 @@ import express from 'express'
 import {
 	changePassword,
 	forgetPassword,
+	googleLogin,
 	loginAdmin,
 	loginUser,
 	registerAdmin,
@@ -11,6 +12,8 @@ import {
 import protectRoute from '../middlewares/authMiddleware.js'
 
 const router = express.Router()
+
+router.post('/google-login', googleLogin)
 
 router.post('/register', registerUser)
 router.post('/login', loginUser)

@@ -1,4 +1,5 @@
 import axios from 'axios'
+import qs from 'qs'
 import Order from '../models/Order.js'
 import Product from '../models/Product.js'
 
@@ -38,10 +39,7 @@ export const createOrder = async (req, res) => {
 				.status(400)
 				.json({ message: 'Complete shipping address is required' })
 		}
-		if (
-			payment_method !== 'sslcommerz' &&
-			payment_method !== 'Cash On Delivery'
-		)
+		if (payment_method !== 'Online' && payment_method !== 'Cash On Delivery')
 			return res.status(400).json({ message: 'Invalid payment method' })
 
 		let total_price = 0
@@ -100,8 +98,7 @@ export const createOrder = async (req, res) => {
 			shipping_address,
 			order_status: 'Pending',
 			payment_method,
-			payment_status:
-				payment_method === 'Cash On Delivery' ? 'Pending' : 'Paid',
+			payment_status: 'Pending',
 		})
 
 		await order.save()
@@ -109,7 +106,7 @@ export const createOrder = async (req, res) => {
 		console.log(order)
 
 		let payment_url = ''
-		if (payment_method === 'sslcommerz') {
+		if (payment_method === 'Online') {
 			const sslData = {
 				store_id: process.env.SSLCOMMERZ_STORE_ID,
 				store_passwd: process.env.SSLCOMMERZ_STORE_PASSWORD,
@@ -117,17 +114,26 @@ export const createOrder = async (req, res) => {
 				currency: 'BDT',
 				tran_id: order.order_id,
 				success_url: `${process.env.FRONTEND_URL}/api/orders/ssl-success`,
-				fail_url: `${process.env.FRONTEND_URL}/api/orders/ssl-fail`,
-				cancel_url: `${process.env.FRONTEND_URL}/api/orders/ssl-cancel`,
-				customer_name: req.user?.name,
-				customer_email: req.user?.email,
-				customer_phone: phone_number,
+				fail_url: `${process.env.FRONTEND_URL}/ssl-fail`,
+				cancel_url: `${process.env.FRONTEND_URL}/ssl-cancel`,
+				cus_name: req.user?.name || 'Customer',
+				cus_email: req.user?.email || 'example@email.com',
+				cus_add1: shipping_address.street || 'Not provided',
+				cus_city: shipping_address.city || 'Not provided',
+				cus_state: shipping_address.state || '',
+				cus_postcode: shipping_address.postal_code || '',
+				cus_country: shipping_address.country || 'Bangladesh',
+				cus_phone: phone_number,
+				shipping_method: 'Courier',
 				product_name: 'Clothing Items',
+				product_category: 'Fashion',
+				product_profile: 'general',
 			}
 
 			const sslRes = await axios.post(
-				'https://sandbox.sslcommerz.com/gwprocess/v4/api.php',
-				sslData,
+				'https://sandbox.sslcommerz.com/gwprocess/v3/api.php',
+				qs.stringify(sslData),
+				{ headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
 			)
 
 			if (!sslRes.data?.GatewayPageURL) {
@@ -158,25 +164,75 @@ export const sslSuccess = async (req, res) => {
 	try {
 		const { tran_id, val_id } = req.body
 
-		// Verify payment
-		const verifyRes = await axios.post(
-			`https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php?val_id=${val_id}&store_id=${process.env.SSLCOMMERZ_STORE_ID}&store_passwd=${process.env.SSLCOMMERZ_STORE_PASSWORD}`,
-		)
-
-		if (verifyRes.data.status === 'VALID') {
-			const order = await Order.findOneAndUpdate(
-				{ order_id: tran_id },
-				{ payment_status: 'Paid' },
-				{ new: true },
-			)
-			return res
-				.status(200)
-				.json({ message: 'SSLCOMMERZ Payment Successful', order })
+		if (!tran_id || !val_id) {
+			return res.status(400).json({ message: 'Invalid request body' })
 		}
 
+		// Verify payment with SSLCOMMERZ API
+		const verifyUrl = `https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php?val_id=${val_id}&store_id=${process.env.SSLCOMMERZ_STORE_ID}&store_passwd=${process.env.SSLCOMMERZ_STORE_PASSWORD}&v=1&format=json`
+
+		const verifyRes = await axios.post(verifyUrl)
+
+		if (verifyRes.data.status === 'VALID') {
+			// Update order payment status
+			const order = await Order.findOneAndUpdate(
+				{ order_id: tran_id },
+				{ payment_status: 'Paid', payment_info: verifyRes.data },
+				{ new: true },
+			)
+
+			if (!order) {
+				return res.status(404).json({ message: 'Order not found' })
+			}
+
+			return res.status(200).json({
+				message: 'SSLCOMMERZ Payment Successful',
+				order,
+			})
+		}
+
+		// If payment status is not VALID
 		res.status(400).json({ message: 'SSLCOMMERZ Payment Verification Failed' })
 	} catch (error) {
-		console.error(error)
+		console.error('SSLCOMMERZ Success Route Error:', error.message)
+		res.status(500).json({ message: 'Server error' })
+	}
+}
+
+export const sslFail = async (req, res) => {
+	try {
+		const { tran_id } = req.body
+		if (!tran_id)
+			return res.status(400).json({ message: 'Transaction ID required' })
+
+		// Optionally update order to mark payment failed
+		await Order.findOneAndUpdate(
+			{ order_id: tran_id },
+			{ payment_status: 'Failed' },
+		)
+
+		return res.status(200).json({ message: 'Payment Failed' })
+	} catch (error) {
+		console.error('SSLCOMMERZ Fail Route Error:', error.message)
+		res.status(500).json({ message: 'Server error' })
+	}
+}
+
+export const sslCancel = async (req, res) => {
+	try {
+		const { tran_id } = req.body
+		if (!tran_id)
+			return res.status(400).json({ message: 'Transaction ID required' })
+
+		// Optionally update order to mark payment cancelled
+		await Order.findOneAndUpdate(
+			{ order_id: tran_id },
+			{ payment_status: 'Cancelled' },
+		)
+
+		return res.status(200).json({ message: 'Payment Cancelled' })
+	} catch (error) {
+		console.error('SSLCOMMERZ Cancel Route Error:', error.message)
 		res.status(500).json({ message: 'Server error' })
 	}
 }
