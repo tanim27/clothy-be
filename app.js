@@ -18,6 +18,7 @@ connectDB()
 // Allowed origins
 const allowedOrigins = [
 	'http://localhost:3000',
+	'https://sandbox.sslcommerz.com',
 	'https://clothy-fe.onrender.com',
 	'https://clothy-admin.onrender.com',
 ]
@@ -25,19 +26,19 @@ const allowedOrigins = [
 // CORS middleware
 app.use(
 	cors({
-		origin: function (origin, callback) {
-			if (!origin || allowedOrigins.includes(origin)) {
-				callback(null, true)
-			} else {
-				callback(new Error('Not allowed by CORS'))
-			}
-		},
-		credentials: true,
+		origin: true, // Reflects the request origin
+		credentials: true, // Allow cookies and credentials
 	}),
 )
 
 // Automatically respond to preflight requests
-app.options('*', cors())
+app.options(
+	'*',
+	cors({
+		origin: true,
+		credentials: true,
+	}),
+)
 
 // Middleware
 app.use(express.json())
@@ -61,6 +62,13 @@ app.use('/api/orders', orderRoutes)
 // 404 Not Found handler
 app.use((req, res, next) => {
 	res.status(404).json({ message: 'Route not found' })
+})
+
+app.use((req, res, next) => {
+	console.log(
+		`[${req.method}] ${req.originalUrl} | Origin: ${req.headers.origin}`,
+	)
+	next()
 })
 
 // Centralized error handler

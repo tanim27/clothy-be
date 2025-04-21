@@ -22,9 +22,9 @@
 		"mongoose": "^8.12.1",
 		"multer": "^1.4.5-lts.2",
 		"nodemailer": "^6.10.0",
-		"qs": "^6.14.0",
+		"sslcommerz": "^1.7.0",
+		"sslcommerz-lts": "^1.1.0",
 		"streamifier": "^0.1.1",
-		"stripe": "^17.7.0",
 		"uuid": "^11.1.0"
 	}
 }
