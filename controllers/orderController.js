@@ -25,12 +25,12 @@ export const createOrder = async (req, res) => {
 			return res.status(400).json({ message: 'Phone number is required' })
 
 		const existingOrder = await Order.findOne({ phone_number })
+
 		if (existingOrder) {
 			return res.status(400).json({
 				message: 'An order has already been placed using this phone number',
 			})
 		}
-
 		if (!Array.isArray(clientProducts) || clientProducts.length === 0)
 			return res.status(400).json({ message: 'Products array is required' })
 		if (
