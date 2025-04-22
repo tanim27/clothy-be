@@ -17,25 +17,53 @@ connectDB()
 
 // Allowed origins
 const allowedOrigins = [
-	'http://localhost:3000',
 	'https://sandbox.sslcommerz.com',
 	'https://clothy-fe.onrender.com',
 	'https://clothy-admin.onrender.com',
 ]
 
-// CORS middleware
+// // CORS middleware
+// app.use(
+// 	cors({
+// 		origin: true, // Reflects the request origin
+// 		credentials: true, // Allow cookies and credentials
+// 	}),
+// )
+
+// // Automatically respond to preflight requests
+// app.options(
+// 	'*',
+// 	cors({
+// 		origin: true,
+// 		credentials: true,
+// 	}),
+// )
+
+// CORS middleware with allowed origin check
 app.use(
 	cors({
-		origin: true, // Reflects the request origin
-		credentials: true, // Allow cookies and credentials
+		origin: (origin, callback) => {
+			if (!origin || allowedOrigins.includes(origin)) {
+				callback(null, true)
+			} else {
+				callback(new Error('Not allowed by CORS'))
+			}
+		},
+		credentials: true,
 	}),
 )
 
-// Automatically respond to preflight requests
+// Automatically respond to preflight requests (OPTIONS)
 app.options(
 	'*',
 	cors({
-		origin: true,
+		origin: (origin, callback) => {
+			if (!origin || allowedOrigins.includes(origin)) {
+				callback(null, true)
+			} else {
+				callback(new Error('Not allowed by CORS'))
+			}
+		},
 		credentials: true,
 	}),
 )
